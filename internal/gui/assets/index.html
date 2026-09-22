@@ -2090,6 +2090,10 @@
             <div><span class="btn-key">[5]</span><span>Ajuda & Atalhos</span></div>
             <span class="btn-icon">📖</span>
           </div>
+          <div class="action-btn" data-index="5" id="btnBackToChat" style="display: none; background: linear-gradient(135deg, var(--accent-gold), var(--primary-btn-bg)); border: 1.5px solid var(--accent-gold);">
+            <div><span class="btn-key" style="color: var(--primary-btn-fg);">[6]</span><span style="color: var(--primary-btn-fg); font-weight: 700;">↩ Voltar ao Chat</span></div>
+            <span class="btn-icon">💬</span>
+          </div>
         </div>
       </div>
 
@@ -3918,7 +3922,9 @@
           <div>Conversa limpa. Digite uma dúvida abaixo para iniciar um novo diagnóstico.</div>
         </div>
       `;
-      // Esconde dica de Shift+Tab no footer do dashboard
+      // Esconde botão "Voltar ao Chat" no dashboard
+      const btnBackChat = document.getElementById('btnBackToChat');
+      if (btnBackChat) btnBackChat.style.display = 'none';
       if (window.backend && window.backend.clearConversation) {
         window.backend.clearConversation();
       }
@@ -4087,6 +4093,9 @@
       // Se for a primeira mensagem, limpa o texto padrão "Aguardando resposta..."
       if (turnCount === 1) {
         respArea.innerHTML = "";
+        // Mostra botão "Voltar ao Chat" no dashboard
+        const btnBackChat = document.getElementById('btnBackToChat');
+        if (btnBackChat) btnBackChat.style.display = 'flex';
       }
 
       // Adiciona bolha de mensagem do Usuário
@@ -4536,6 +4545,8 @@
         showProvidersModal();
       } else if (index === 4) {
         showHelpModal();
+      } else if (index === 5) {
+        showChat();
       }
     }
 
