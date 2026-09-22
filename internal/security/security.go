@@ -214,9 +214,30 @@ func IsSafeReadCommand(cmd string) bool {
 		return false
 	}
 
-	// Operadores perigosos
-	if strings.Contains(trimmed, "$(") || strings.Contains(trimmed, "`") || strings.Contains(trimmed, "sudo ") {
+	// Operadores perigosos (sudo sempre bloqueado)
+	if strings.Contains(trimmed, "sudo ") {
 		return false
+	}
+
+	// Subshell: permitir apenas em comandos seguros conhecidos
+	hasSubshell := strings.Contains(trimmed, "$(") || strings.Contains(trimmed, "`")
+	if hasSubshell {
+		// Extrair primeiro comando antes do pipe/redirect
+		firstCmd := trimmed
+		if idx := strings.IndexAny(trimmed, "|;&"); idx != -1 {
+			firstCmd = trimmed[:idx]
+		}
+		firstWord := strings.Fields(firstCmd)
+		if len(firstWord) > 0 {
+			safeWithSubshell := map[string]bool{
+				"echo": true, "printf": true, "cat": true,
+			}
+			if !safeWithSubshell[firstWord[0]] {
+				return false
+			}
+		} else {
+			return false
+		}
 	}
 
 	// Redirecionamento além de /dev/null

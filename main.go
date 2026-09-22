@@ -65,6 +65,10 @@ func main() {
 		if err == nil {
 			return
 		}
+		// Garantir que recursos da GUI sejam liberados
+		if cleaner, ok := interface{}(km).(interface{ Cleanup() }); ok {
+			cleaner.Cleanup()
+		}
 		fmt.Fprintf(os.Stderr, "Aviso: Falha ao abrir janela gráfica (%v), iniciando modo terminal TUI...\n", err)
 	}
 

@@ -208,8 +208,8 @@ func (o *OllamaProvider) AskStream(ctx context.Context, systemPrompt, userPrompt
 	}
 
 	scanner := bufio.NewScanner(resp.Body)
-	buf := make([]byte, 64*1024)
-	scanner.Buffer(buf, 10*1024*1024)
+	buf := make([]byte, 32*1024)
+	scanner.Buffer(buf, 5*1024*1024)
 	receivedAny := false
 	for scanner.Scan() {
 		line := scanner.Bytes()
@@ -447,8 +447,8 @@ func (p *OpenAICompatibleProvider) AskStream(ctx context.Context, systemPrompt, 
 	}
 
 	scanner := bufio.NewScanner(resp.Body)
-	buf := make([]byte, 64*1024)
-	scanner.Buffer(buf, 10*1024*1024)
+	buf := make([]byte, 32*1024)
+	scanner.Buffer(buf, 5*1024*1024)
 	receivedAny := false
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
@@ -611,8 +611,8 @@ func (g *GeminiProvider) AskStream(ctx context.Context, systemPrompt, userPrompt
 	}
 
 	scanner := bufio.NewScanner(resp.Body)
-	buf := make([]byte, 64*1024)
-	scanner.Buffer(buf, 10*1024*1024)
+	buf := make([]byte, 32*1024)
+	scanner.Buffer(buf, 5*1024*1024)
 	receivedAny := false
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())

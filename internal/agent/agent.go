@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"metis-screen/internal/ai"
@@ -442,6 +443,9 @@ func ExecuteTool(ctx context.Context, call ToolCall) ToolResult {
 		cmd.Stdout = &outBuf
 		cmd.Stderr = &errBuf
 
+		// Configurar para matar process group inteiro
+		cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+
 		err := cmd.Run()
 		combined := outBuf.String()
 		if errBuf.Len() > 0 {
@@ -449,6 +453,12 @@ func ExecuteTool(ctx context.Context, call ToolCall) ToolResult {
 				combined += "\n"
 			}
 			combined += errBuf.String()
+		}
+
+		// Se houver erro de timeout, matar process group
+		if err != nil && execCtx.Err() == context.DeadlineExceeded {
+			// Tenta matar o process group
+			syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
 		}
 
 		if err != nil {
@@ -737,19 +747,22 @@ RELATÓRIO FINAL (formato exato)
 
 		// Chamada ao provedor de IA acumulando resposta
 		ch := make(chan string, 10)
+		errCh := make(chan error, 1)
 		var fullResp strings.Builder
-		var streamErr error
 
 		go func() {
 			defer close(ch)
-			streamErr = prov.AskStream(ctx, sysPrompt, currentContext, ch)
+			defer close(errCh)
+			err := prov.AskStream(ctx, sysPrompt, currentContext, ch)
+			errCh <- err
 		}()
 
 		for chunk := range ch {
 			fullResp.WriteString(chunk)
 		}
 
-		if streamErr != nil {
+		// Aguardar erro da goroutine
+		if streamErr := <-errCh; streamErr != nil {
 			return "", streamErr
 		}
 
@@ -920,21 +933,28 @@ res := ExecuteTool(ctx, tool)
 
 			// Aguarda o término da execução (espera hook ZSH ou timeout)
 			waited := 0
-			maxWait := 120 // 12 segundos (120 * 100ms)
+			maxWait := 60 // 6 segundos (60 iterações com backoff)
 			statusFile := "/tmp/metis_last_status"
 			if km.WindowID != "" {
 				statusFile = fmt.Sprintf("/tmp/metis_status_%s", km.WindowID)
 			}
+			baseDelay := 150 * time.Millisecond
 
 			for waited < maxWait {
 				if ctx.Err() != nil {
 					return "", ctx.Err()
 				}
 				if _, err := os.Stat(statusFile); err == nil {
-					time.Sleep(150 * time.Millisecond) // buffer draw
+					time.Sleep(100 * time.Millisecond)
 					break
 				}
-				time.Sleep(100 * time.Millisecond)
+
+				// Backoff exponencial simples: 150ms, 200ms, 250ms... máx 500ms
+				delay := baseDelay + time.Duration(waited*50)*time.Millisecond
+				if delay > 500*time.Millisecond {
+					delay = 500 * time.Millisecond
+				}
+				time.Sleep(delay)
 				waited++
 			}
 

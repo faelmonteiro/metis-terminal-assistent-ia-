@@ -3,6 +3,7 @@ package config
 import (
 	"bufio"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"os/exec"
@@ -809,18 +810,19 @@ func (c *Config) GetProvidersList() []ProviderItem {
 
 // Reload sincroniza e recarrega em tempo real todas as configurações do Metis (.env e config_models.json)
 func (c *Config) Reload() {
+	home := GetUserHome()
+
+	// 1. Carregar dados FORA do lock (I/O lento)
+	loadEnvFiles(home, true)
+	newConfig := loadModelsConfigFile()
+
+	// 2. Aplicar mudanças DENTRO do lock (rápido)
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	home := GetUserHome()
+	c.ModelsConfig = newConfig
 
-	// 1. Recarrega arquivos .env forçando substituição de variáveis com as novidades
-	loadEnvFiles(home, true)
-
-	// 2. Recarrega o arquivo JSON de modelos e servidores
-	c.ModelsConfig = loadModelsConfigFile()
-
-	// 3. Atualiza propriedades internas do Config
+	// Atualiza propriedades internas
 	c.OllamaURL = getEnvOrDefault("OLLAMA_URL", "http://localhost:11434")
 	c.OllamaModel = getEnvOrDefault("OLLAMA_MODEL", "llama3.2:3b")
 	c.GeminiKey = os.Getenv("GEMINI_API_KEY")
@@ -836,7 +838,7 @@ func (c *Config) Reload() {
 	c.G4FModel = getEnvOrDefault("G4F_MODEL", "gpt-4o")
 	c.AutoAllowMultiline = getEnvBoolOrDefault("AI_AUTO_ALLOW_MULTILINE", false)
 
-	// 4. Atualiza o provedor ativo
+	// Atualiza o provedor ativo
 	c.Provider = c.getSavedProviderLocked()
 	c.applyActiveModelsLocked()
 }
@@ -864,12 +866,6 @@ func (c *Config) getSavedProviderLocked() string {
 }
 
 func (c *Config) GetActiveModelForProvider(prov string) string {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.getActiveModelForProviderLocked(prov)
-}
-
-func (c *Config) getActiveModelForProvider(prov string) string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.getActiveModelForProviderLocked(prov)
@@ -1234,6 +1230,20 @@ func (c *Config) applyActiveModelsLocked() {
 	if activeM != "" {
 		c.ModelsConfig.Preferences.ActiveModels[c.Provider] = activeM
 	}
+
+	// 6. Verificação final: garantir que o Provider ativo tenha modelo válido
+	finalActiveModel := c.getActiveModelForProviderLocked(c.Provider)
+	if finalActiveModel == "" || !c.isModelValidForProviderLocked(c.Provider, finalActiveModel) {
+		// Provider ativo perdeu seu modelo, tentar fallback
+		for _, p := range []string{"groq", "gemini", "nvidia", "openrouter", "ollama", "g4f"} {
+			if m := c.getFirstValidModelForProviderLocked(p); m != "" {
+				c.Provider = p
+				c.setActiveModelForProviderLocked(p, m)
+				c.ModelsConfig.Preferences.ActiveModels[p] = m
+				break
+			}
+		}
+	}
 }
 
 func (c *Config) SaveProvider(provider string) error {
@@ -1500,59 +1510,65 @@ func (c *Config) saveModelsConfigLocked() error {
 		}
 	}
 
+	// Preparar o mapa de dados uma vez
+	var m map[string]interface{}
+	if len(paths) > 0 {
+		if data, err := os.ReadFile(paths[0]); err == nil {
+			_ = json.Unmarshal(data, &m)
+		}
+	}
+	if m == nil {
+		m = make(map[string]interface{})
+	}
+
+	m["builtin_models"] = c.ModelsConfig.BuiltinModels
+	m["removed_models"] = c.ModelsConfig.RemovedModels
+	m["removed_servers"] = c.ModelsConfig.RemovedServers
+	m["custom_servers"] = c.ModelsConfig.CustomServers
+	if c.ModelsConfig.ActiveProvider != "" {
+		m["active_provider"] = c.ModelsConfig.ActiveProvider
+	}
+	if c.ModelsConfig.ActiveModel != "" {
+		m["active_model"] = c.ModelsConfig.ActiveModel
+	}
+
+	prefs, ok := m["preferences"].(map[string]interface{})
+	if !ok {
+		prefs = make(map[string]interface{})
+	}
+	if c.ModelsConfig.Preferences.ThemeID != "" {
+		prefs["theme_id"] = c.ModelsConfig.Preferences.ThemeID
+	}
+	if c.ModelsConfig.Preferences.WindowOpacity > 0 {
+		prefs["window_opacity"] = c.ModelsConfig.Preferences.WindowOpacity
+	}
+	if c.ModelsConfig.Preferences.LastActiveProvider != "" {
+		prefs["last_active_provider"] = c.ModelsConfig.Preferences.LastActiveProvider
+	}
+	if c.ModelsConfig.Preferences.LastActiveModel != "" {
+		prefs["last_active_model"] = c.ModelsConfig.Preferences.LastActiveModel
+	}
+	if c.ModelsConfig.Preferences.ActiveModels != nil {
+		prefs["active_models"] = c.ModelsConfig.Preferences.ActiveModels
+	}
+	m["preferences"] = prefs
+
+	// Marshal UMA VEZ
+	outData, marshalErr := json.MarshalIndent(m, "", "  ")
+	if marshalErr != nil {
+		return marshalErr
+	}
+
+	// Escreve em TODOS os paths
 	var lastErr error
 	written := false
 	for _, p := range paths {
-		var m map[string]interface{}
-		if data, err := os.ReadFile(p); err == nil {
-			_ = json.Unmarshal(data, &m)
-		}
-		if m == nil {
-			m = make(map[string]interface{})
-		}
-
-		m["builtin_models"] = c.ModelsConfig.BuiltinModels
-		m["removed_models"] = c.ModelsConfig.RemovedModels
-		m["removed_servers"] = c.ModelsConfig.RemovedServers
-		m["custom_servers"] = c.ModelsConfig.CustomServers
-		if c.ModelsConfig.ActiveProvider != "" {
-			m["active_provider"] = c.ModelsConfig.ActiveProvider
-		}
-		if c.ModelsConfig.ActiveModel != "" {
-			m["active_model"] = c.ModelsConfig.ActiveModel
-		}
-
-		prefs, ok := m["preferences"].(map[string]interface{})
-		if !ok {
-			prefs = make(map[string]interface{})
-		}
-		if c.ModelsConfig.Preferences.ThemeID != "" {
-			prefs["theme_id"] = c.ModelsConfig.Preferences.ThemeID
-		}
-		if c.ModelsConfig.Preferences.WindowOpacity > 0 {
-			prefs["window_opacity"] = c.ModelsConfig.Preferences.WindowOpacity
-		}
-		if c.ModelsConfig.Preferences.LastActiveProvider != "" {
-			prefs["last_active_provider"] = c.ModelsConfig.Preferences.LastActiveProvider
-		}
-		if c.ModelsConfig.Preferences.LastActiveModel != "" {
-			prefs["last_active_model"] = c.ModelsConfig.Preferences.LastActiveModel
-		}
-		if c.ModelsConfig.Preferences.ActiveModels != nil {
-			prefs["active_models"] = c.ModelsConfig.Preferences.ActiveModels
-		}
-		m["preferences"] = prefs
-
 		_ = os.MkdirAll(filepath.Dir(p), 0755)
-		if outData, err := json.MarshalIndent(m, "", "  "); err == nil {
-			if err := os.WriteFile(p, outData, 0600); err != nil {
-				lastErr = err
-			} else {
-				written = true
-			}
-		} else {
+		if err := os.WriteFile(p, outData, 0600); err != nil {
 			lastErr = err
+			continue
 		}
+		written = true
 	}
 	if !written && lastErr != nil {
 		return lastErr
@@ -2033,7 +2049,7 @@ func (c *Config) SyncMetisModels() error {
 	if !found && len(provs) > 0 {
 		_ = c.SaveProvider(provs[0].ID)
 	} else if c.Provider != "" {
-		currentModel := c.getActiveModelForProvider(c.Provider)
+		currentModel := c.GetActiveModelForProvider(c.Provider)
 		if c.IsModelValidForProvider(c.Provider, currentModel) {
 			_ = c.SaveProviderAndModel(c.Provider, currentModel)
 		} else {
@@ -2261,6 +2277,7 @@ func loadEnvFiles(home string, forceOverwrite ...bool) {
 	for _, cand := range existing {
 		f, err := os.Open(cand.path)
 		if err != nil {
+			fmt.Fprintf(os.Stderr, "Aviso: não foi possível ler %s: %v\n", cand.path, err)
 			continue
 		}
 		scanner := bufio.NewScanner(f)

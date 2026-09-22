@@ -1,6 +1,6 @@
 module metis-screen
 
-go 1.27.1
+go 1.21
 
 require (
 	github.com/charmbracelet/bubbles v0.20.0
