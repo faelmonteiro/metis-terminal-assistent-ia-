@@ -835,8 +835,6 @@ RELATÓRIO FINAL (formato exato)
 				continue
 			}
 
-			isSafeRead := security.IsSafeReadCommand(cmd)
-
 			// 2. Comandos de risco / sensíveis: requer confirmação explícita do usuário
 			if risky, reason := security.IsRiskyAutoCommand(cmd); risky {
 				AutoAuditLog(fmt.Sprintf("CONFIRMAR: %s (%s)", cmd, reason))
@@ -879,33 +877,6 @@ RELATÓRIO FINAL (formato exato)
 					currentContext += fmt.Sprintf("\n[Assistente]: %s\n<tool_result>\nAção multilinha '%s' cancelada pelo usuário. Sugira uma alternativa em uma única linha ou finalize.\n</tool_result>", respText, cmd)
 					continue
 				}
-			}
-
-			// 2.2 Caminho rápido local: comandos 100% de inspeção/leitura rodam
-			// em subprocesso com timeout curto, sem depender do envio ao Kitty.
-			if isSafeRead {
-				if onProgress != nil {
-					onProgress(step, maxSteps, "", "", fmt.Sprintf("🔍 Inspecionando localmente: $ %s", cmd), false)
-				}
-				res := ExecuteTool(ctx, ToolCall{Type: "bash", Command: cmd})
-				statusInfo := "[Status de Retorno / Exit Code]: 0 (Sucesso / OK)"
-				if res.Err != nil {
-					statusInfo = "[Status de Retorno / Exit Code]: falha na inspeção local"
-				}
-				out := strings.TrimSpace(res.Output)
-				if out == "" {
-					out = "[Sem saída]"
-				}
-				AutoAuditLog(fmt.Sprintf("EXECUTADO_LOCAL: %s", cmd))
-				executedOutputs[cmd] = out
-				anyExecuted = true
-				if onProgress != nil {
-					onProgress(step, maxSteps, cmd, out, statusInfo, false)
-				}
-				currentContext += fmt.Sprintf("\n[Assistente]: %s\n<tool_result>\n[Comando executado (inspeção local)]: %s\n%s\n[Saída capturada]:\n%s\n</tool_result>\n[Sistema]: Analise o status de retorno e a saída acima. Se o comando resolveu o erro com sucesso ou se ainda faltam verificações ou comandos para cumprir integralmente o que o usuário pediu, envie a próxima <tool_call name=\"bash\">. NUNCA invente saídas de comandos que não rodaram. Apenas envie o relatório final se TODOS os itens solicitados já foram executados e confirmados:",
-					respText, cmd, statusInfo, out)
-				currentContext = LimitContextTurns(currentContext, maxTurns)
-				continue
 			}
 
 			// Notificação pré-execução como status (sem card duplicado de ação):
