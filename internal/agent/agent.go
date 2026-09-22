@@ -712,7 +712,7 @@ RELATÓRIO FINAL (formato exato)
 **1. Objetivo**`+"```bash\ncmd\n```"+`
 > **Resultado:** resumo
 
-### ✅ Confirmação
+### 🏁 Conclusão
 (O problema foi resolvido? Confirme claramente sim/não, resuma as ações executadas e o estado final do terminal)
 
 ### 💡 Dicas e Próximos Passos
@@ -740,7 +740,7 @@ RELATÓRIO FINAL (formato exato)
   □ Sem pendentes?
   □ Responde completamente?
 • Formato: <tool_call name="bash">cmd</
-• Final: ### 🎯 Diagnóstico / ### ⚡ Ações / ### ✅ Confirmação / ### 💡 Dicas e Próximos Passos`, step, maxSteps)
+• Final: ### 🎯 Diagnóstico / ### ⚡ Ações / ### 🏁 Conclusão / ### 💡 Dicas e Próximos Passos`, step, maxSteps)
 
 			if cfg != nil {
 				// Adiciona o lembrete ao cabeçalho da instrução
@@ -998,7 +998,7 @@ RELATÓRIO FINAL (formato exato)
 	default:
 		stopDirective = "O limite de passos foi atingido. NÃO envie novas ferramentas ou comandos."
 	}
-	finalPrompt := currentContext + "\n[Sistema]: " + stopDirective + " Apresente agora o relatório final consolidado com Diagnóstico (detalhando o que foi feito e por quê), Ações Realizadas, Confirmação e Dicas e Próximos Passos. Seja enxuto: liste cada comando executado apenas UMA única vez (não repita os comandos dos passos anteriores) e não relate o seu raciocínio interno, apenas o resultado final:"
+	finalPrompt := currentContext + "\n[Sistema]: " + stopDirective + " Apresente agora o relatório final consolidado com Diagnóstico (detalhando o que foi feito e por quê), Ações Realizadas, Conclusão e Dicas e Próximos Passos. Seja enxuto: liste cada comando executado apenas UMA única vez (não repita os comandos dos passos anteriores) e não relate o seu raciocínio interno, apenas o resultado final:"
 	ch := make(chan string, 10)
 	var finalReport strings.Builder
 	var finalErr error
@@ -1209,7 +1209,7 @@ DIRETRIZES DE FORMATAÇÃO E APRESENTAÇÃO (RIGOROSO):
 ` + "```bash\noutro_comando\n```" + `
 > Explicação concisa do próximo passo.
 
-### ✅ Confirmação
+### 🏁 Conclusão
 (Confirme claramente se o problema foi resolvido, resuma as ações recomendadas e o impacto esperado no terminal.)
 
 ### 💡 Dicas e Próximos Passos
@@ -1254,7 +1254,7 @@ conteúdo completo
 Regras do modo autônomo:
 1. Sempre inspecione o problema usando ferramentas antes de concluir.
 2. Emita apenas uma ou duas ações por etapa para analisar os resultados.
-3. Quando o objetivo estiver totalmente concluído, apresente a conclusão final no formato estruturado (Diagnóstico, Ações, Confirmação e Dicas e Próximos Passos) SEM usar nenhuma tag de ferramenta.`
+3. Quando o objetivo estiver totalmente concluído, apresente a conclusão final no formato estruturado (Diagnóstico, Ações, Conclusão e Dicas e Próximos Passos) SEM usar nenhuma tag de ferramenta.`
 }
 
 // ParseFlagsAndQuery extrai opções como -p N, -n N, -N, /s de perguntas e comandos
