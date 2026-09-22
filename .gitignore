@@ -1,0 +1,15 @@
+# Binários compilados
+/metis-screen
+/metis-screen-race
+/dist/
+/bin/
+
+# Artefatos de teste e build (Go)
+*.test
+*.out
+*.prof
+
+# IDE / SO
+.idea/
+.vscode/
+.DS_Store
