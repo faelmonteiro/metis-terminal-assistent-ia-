@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 	"os"
-	osUser "os/user"
 	"os/exec"
+	osUser "os/user"
 	"path/filepath"
 	"strings"
 	"time"
@@ -51,32 +51,32 @@ type MenuItem struct {
 }
 
 type Model struct {
-	cfg          *config.Config
-	km           *kitty.KittyManager
-	provider     ai.Provider
-	mode         ViewMode
-	screenLines  int
-	screenText   string
-	selection    string
-	lastCode     string
+	cfg                 *config.Config
+	km                  *kitty.KittyManager
+	provider            ai.Provider
+	mode                ViewMode
+	screenLines         int
+	screenText          string
+	selection           string
+	lastCode            string
 	lastQuery           string
 	conversationHistory string
 	viewport            viewport.Model
-	textInput    textinput.Model
-	spinner      spinner.Model
-	isLoading    bool
-	statusMsg    string
-	menuIndex    int
-	menuActions  []MenuItem
-	provIndex    int
-	provItems    []string
-	autoMode     bool
-	autoSteps    int
-	fullResponse strings.Builder
-	renderer     *glamour.TermRenderer
-	width        int
-	height       int
-	cancelFunc   context.CancelFunc
+	textInput           textinput.Model
+	spinner             spinner.Model
+	isLoading           bool
+	statusMsg           string
+	menuIndex           int
+	menuActions         []MenuItem
+	provIndex           int
+	provItems           []string
+	autoMode            bool
+	autoSteps           int
+	fullResponse        strings.Builder
+	renderer            *glamour.TermRenderer
+	width               int
+	height              int
+	cancelFunc          context.CancelFunc
 }
 
 func createMenuActions(prov ai.Provider, lines int, sel, screen string) []MenuItem {
@@ -678,8 +678,6 @@ func (m Model) View() string {
 func (m Model) renderHeader(w int) string {
 	titleText := styleTitle.Render("  METIS")
 
-
-
 	badgeContent := "● Online"
 	badgeText := styleStatusBadge.Render(badgeContent)
 
@@ -766,9 +764,9 @@ func (m Model) renderDashboard(w int) string {
 		btnContent := keyStyle.Render(act.KeyBadge) + titleStyle.Render(act.Title) + iconStyle.Render(act.Icon)
 
 		if i == m.menuIndex {
-			leftB.WriteString(styleMenuItemActive.Width(leftColWidth - 2).Render(btnContent) + "\n\n")
+			leftB.WriteString(styleMenuItemActive.Width(leftColWidth-2).Render(btnContent) + "\n\n")
 		} else {
-			leftB.WriteString(styleMenuItemInactive.Width(leftColWidth - 2).Render(btnContent) + "\n\n")
+			leftB.WriteString(styleMenuItemInactive.Width(leftColWidth-2).Render(btnContent) + "\n\n")
 		}
 	}
 
@@ -783,7 +781,7 @@ func (m Model) renderDashboard(w int) string {
 
 	if curr.Snippet != "" {
 		snippetFormatted := lipgloss.NewStyle().Foreground(colorSnippetText).Render(curr.Snippet)
-		cardContent.WriteString(styleSnippetBox.Width(rightColWidth - 6).Render(snippetFormatted) + "\n\n")
+		cardContent.WriteString(styleSnippetBox.Width(rightColWidth-6).Render(snippetFormatted) + "\n\n")
 	}
 
 	applyBtn := styleButton.Width(rightColWidth - 6).Render(curr.ButtonLabel)
@@ -830,7 +828,7 @@ func (m Model) renderModelMenu(w int) string {
 			cursor = "➜ "
 			style = itemActiveStyle
 		}
-		b.WriteString(style.Width(w - 4).Render(fmt.Sprintf("%s%s", cursor, strings.ToUpper(item))) + "\n\n")
+		b.WriteString(style.Width(w-4).Render(fmt.Sprintf("%s%s", cursor, strings.ToUpper(item))) + "\n\n")
 	}
 
 	return cardStyle.Render(b.String())

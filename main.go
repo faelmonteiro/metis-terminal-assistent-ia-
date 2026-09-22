@@ -99,4 +99,3 @@ func normalizeCLIArgs(args []string) []string {
 	}
 	return normalized
 }
-

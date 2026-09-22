@@ -81,8 +81,8 @@ func TestIsSafeReadCommand(t *testing.T) {
 		{"cat /tmp/test.txt", true},
 		{"ls -la /home", true},
 		{"head -n 5 log.txt", true},
-		{"cat /etc/passwd", false},             // bloqueado por caminho sensível
-		{"head ~/.config/claude/keys", false},  // bloqueado por credencial
+		{"cat /etc/passwd", false},            // bloqueado por caminho sensível
+		{"head ~/.config/claude/keys", false}, // bloqueado por credencial
 		{"cat ~/.ssh/id_rsa", false},
 		{"cat .env", false},
 		{"rm file.txt", false},

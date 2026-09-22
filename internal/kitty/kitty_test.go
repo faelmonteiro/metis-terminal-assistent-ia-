@@ -92,5 +92,3 @@ func TestSendTextEmpty(t *testing.T) {
 		t.Error("esperava erro ao enviar comando vazio, obteve nil")
 	}
 }
-
-

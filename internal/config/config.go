@@ -72,11 +72,11 @@ type Preferences struct {
 type ModelsConfigFile struct {
 	BuiltinModels  map[string][]string `json:"builtin_models"`
 	RemovedModels  map[string][]string `json:"removed_models"`
-	RemovedServers []string           `json:"removed_servers"`
+	RemovedServers []string            `json:"removed_servers"`
 	CustomServers  []CustomServer      `json:"custom_servers"`
 	Preferences    Preferences         `json:"preferences"`
-	ActiveProvider string             `json:"active_provider"`
-	ActiveModel    string             `json:"active_model"`
+	ActiveProvider string              `json:"active_provider"`
+	ActiveModel    string              `json:"active_model"`
 }
 
 type Theme struct {
@@ -107,7 +107,7 @@ var MetisThemes = map[string]Theme{
 	"metis_oracle": {
 		ID: "metis_oracle", Name: "Metis Oracle", Icon: "🏛️", Category: "PADRÃO",
 		Description: "Dourado âmbar com azul espacial profundo e sobriedade analítica.",
-		BgMain: "#080f1d", BgCard: "#0e1a30", BgInput: "#12223f", Border: "#1e3557",
+		BgMain:      "#080f1d", BgCard: "#0e1a30", BgInput: "#12223f", Border: "#1e3557",
 		BorderGlow: "#fad094", FgText: "#f8fafc", FgSub: "#94a3b8", AccentGold: "#fad094",
 		AccentCyan: "#67e8f9", UserBubble: "#193155", AiBubble: "#0e1a30",
 		PrimaryBtnBg: "#d97706", PrimaryBtnHov: "#f59e0b", PrimaryBtnFg: "#ffffff",
@@ -116,7 +116,7 @@ var MetisThemes = map[string]Theme{
 	"olympus_greek": {
 		ID: "olympus_greek", Name: "Olimpo Sagrado", Icon: "🏺", Category: "MITOLOGIA GREGA",
 		Description: "Mármore e bronze de Delfos, ouro divino e a nobreza sábia de Atena.",
-		BgMain: "#17120a", BgCard: "#231c11", BgInput: "#302617", Border: "#5a4522",
+		BgMain:      "#17120a", BgCard: "#231c11", BgInput: "#302617", Border: "#5a4522",
 		BorderGlow: "#d4af37", FgText: "#fdfbf7", FgSub: "#d6d3d1", AccentGold: "#d4af37",
 		AccentCyan: "#93c5fd", UserBubble: "#3d301c", AiBubble: "#231c11",
 		PrimaryBtnBg: "#b48b18", PrimaryBtnHov: "#d4af37", PrimaryBtnFg: "#000000",
@@ -125,7 +125,7 @@ var MetisThemes = map[string]Theme{
 	"valhalla_nordic": {
 		ID: "valhalla_nordic", Name: "Valhalla & Runas", Icon: "⚡", Category: "MITOLOGIA NÓRDICA",
 		Description: "Fiordes glaciais, aço forjado e luzes místicas da Aurora Boreal.",
-		BgMain: "#061523", BgCard: "#0a2238", BgInput: "#0f2d4a", Border: "#184a75",
+		BgMain:      "#061523", BgCard: "#0a2238", BgInput: "#0f2d4a", Border: "#184a75",
 		BorderGlow: "#38bdf8", FgText: "#f0fdf4", FgSub: "#a5f3fc", AccentGold: "#34d399",
 		AccentCyan: "#38bdf8", UserBubble: "#143e66", AiBubble: "#0a2238",
 		PrimaryBtnBg: "#0284c7", PrimaryBtnHov: "#0ea5e9", PrimaryBtnFg: "#ffffff",
@@ -134,7 +134,7 @@ var MetisThemes = map[string]Theme{
 	"dracula_synth": {
 		ID: "dracula_synth", Name: "Dracula Synth", Icon: "🧛", Category: "CYBERPUNK",
 		Description: "Roxo cósmico, rosa neon vibrante e estética retrowave futurista.",
-		BgMain: "#170b29", BgCard: "#23113d", BgInput: "#311754", Border: "#5e248f",
+		BgMain:      "#170b29", BgCard: "#23113d", BgInput: "#311754", Border: "#5e248f",
 		BorderGlow: "#f472b6", FgText: "#fdf4ff", FgSub: "#f0abfc", AccentGold: "#f472b6",
 		AccentCyan: "#c084fc", UserBubble: "#441b75", AiBubble: "#23113d",
 		PrimaryBtnBg: "#9333ea", PrimaryBtnHov: "#a855f7", PrimaryBtnFg: "#ffffff",
@@ -143,7 +143,7 @@ var MetisThemes = map[string]Theme{
 	"nord_ocean": {
 		ID: "nord_ocean", Name: "Nord Arctic", Icon: "❄️", Category: "MINIMALISTA",
 		Description: "Azul glacial ártico, tons frios serenos e clareza polar cristalina.",
-		BgMain: "#0d1726", BgCard: "#142238", BgInput: "#1b2e4c", Border: "#2a4873",
+		BgMain:      "#0d1726", BgCard: "#142238", BgInput: "#1b2e4c", Border: "#2a4873",
 		BorderGlow: "#88c0d0", FgText: "#eceff4", FgSub: "#88c0d0", AccentGold: "#ebcb8b",
 		AccentCyan: "#88c0d0", UserBubble: "#263f66", AiBubble: "#142238",
 		PrimaryBtnBg: "#434c5e", PrimaryBtnHov: "#5e81ac", PrimaryBtnFg: "#eceff4",
@@ -152,7 +152,7 @@ var MetisThemes = map[string]Theme{
 	"matrix_emerald": {
 		ID: "matrix_emerald", Name: "Matrix Emerald", Icon: "🌲", Category: "HACKER",
 		Description: "Preto e verde fosforoso com realces esmeralda luminosos de terminal.",
-		BgMain: "#031409", BgCard: "#062210", BgInput: "#0a3017", Border: "#155c2d",
+		BgMain:      "#031409", BgCard: "#062210", BgInput: "#0a3017", Border: "#155c2d",
 		BorderGlow: "#10b981", FgText: "#ecfdf5", FgSub: "#6ee7b7", AccentGold: "#10b981",
 		AccentCyan: "#34d399", UserBubble: "#0f421f", AiBubble: "#062210",
 		PrimaryBtnBg: "#059669", PrimaryBtnHov: "#10b981", PrimaryBtnFg: "#ffffff",
@@ -161,7 +161,7 @@ var MetisThemes = map[string]Theme{
 	"onyx_mono": {
 		ID: "onyx_mono", Name: "Onyx Minimal", Icon: "🌑", Category: "MONOCROMÁTICO",
 		Description: "Preto carvão e cinza titânio puro para foco extremo sem distrações.",
-		BgMain: "#121215", BgCard: "#1a1a1f", BgInput: "#24242b", Border: "#363642",
+		BgMain:      "#121215", BgCard: "#1a1a1f", BgInput: "#24242b", Border: "#363642",
 		BorderGlow: "#e4e4e7", FgText: "#fafafa", FgSub: "#a1a1aa", AccentGold: "#f4f4f5",
 		AccentCyan: "#a1a1aa", UserBubble: "#2f2f38", AiBubble: "#1a1a1f",
 		PrimaryBtnBg: "#27272a", PrimaryBtnHov: "#3f3f46", PrimaryBtnFg: "#ffffff",

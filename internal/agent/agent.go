@@ -23,7 +23,7 @@ import (
 )
 
 var (
-	toolCallXmlRegex = regexp.MustCompile(`(?is)<(?:tool_call|function|invoke)\b([^>]*)>(.*?)(?:</(?:tool_call|function|invoke)>|$)`)
+	toolCallXmlRegex  = regexp.MustCompile(`(?is)<(?:tool_call|function|invoke)\b([^>]*)>(.*?)(?:</(?:tool_call|function|invoke)>|$)`)
 	toolCallAttrRegex = regexp.MustCompile(`(?i)\bname\s*=\s*(?:"([^"]+)"|'([^']+)'|([^\s>]+))`)
 	toolCallPathRegex = regexp.MustCompile(`(?i)\bpath\s*=\s*(?:"([^"]+)"|'([^']+)'|([^\s>]+))`)
 
@@ -35,14 +35,14 @@ var (
 
 	codeBlockRegex = regexp.MustCompile("(?s)```(?:[a-zA-Z0-9_-]+)?\n(.*?)```")
 
-	cdataRegex     = regexp.MustCompile(`(?s)<!\[CDATA\[(.*?)\]\]>`)
-	paramRegex     = regexp.MustCompile(`(?is)<(?:parameter|arg)\b[^>]*>(.*?)(?:</(?:parameter|arg)>|$)`)
-	residualRegex  = regexp.MustCompile(`(?i)</?(?:parameter|param|function|invoke|arg|arguments|cmd|command|bash|sh|exec|code|script|tool_call|call)[^>]*>`)
-	fenceOpenRegex = regexp.MustCompile(`(?i)^\s*` + "```" + `(?:[a-zA-Z0-9_-]+)?\s*\n?`)
+	cdataRegex      = regexp.MustCompile(`(?s)<!\[CDATA\[(.*?)\]\]>`)
+	paramRegex      = regexp.MustCompile(`(?is)<(?:parameter|arg)\b[^>]*>(.*?)(?:</(?:parameter|arg)>|$)`)
+	residualRegex   = regexp.MustCompile(`(?i)</?(?:parameter|param|function|invoke|arg|arguments|cmd|command|bash|sh|exec|code|script|tool_call|call)[^>]*>`)
+	fenceOpenRegex  = regexp.MustCompile(`(?i)^\s*` + "```" + `(?:[a-zA-Z0-9_-]+)?\s*\n?`)
 	fenceCloseRegex = regexp.MustCompile(`(?i)\n?\s*` + "```" + `\s*$`)
-	danglingRegex  = regexp.MustCompile(`(?is)\s*</[a-zA-Z0-9_-]+>\s*$`)
-	jsonRegex      = regexp.MustCompile(`\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}`)
-	cleanTagsRegex = regexp.MustCompile(`(?is)</?(?:parameter|function|invoke|tool_call|tool_result)[^>]*>`)
+	danglingRegex   = regexp.MustCompile(`(?is)\s*</[a-zA-Z0-9_-]+>\s*$`)
+	jsonRegex       = regexp.MustCompile(`\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}`)
+	cleanTagsRegex  = regexp.MustCompile(`(?is)</?(?:parameter|function|invoke|tool_call|tool_result)[^>]*>`)
 	inlineCodeRegex = regexp.MustCompile("`([^`]+)`")
 )
 
@@ -664,7 +664,7 @@ func RunAutonomousAgent(
 		}
 	}
 
-autoPrompt := fmt.Sprintf(`Você é um Agente Linux autônomo conectado diretamente ao terminal do usuário.%s%s
+	autoPrompt := fmt.Sprintf(`Você é um Agente Linux autônomo conectado diretamente ao terminal do usuário.%s%s
 [Terminal do Usuário (últimas %d linhas)]:
 %s
 
@@ -792,12 +792,12 @@ RELATÓRIO FINAL (formato exato)
 				if onProgress != nil {
 					onProgress(step, maxSteps, "", "", fmt.Sprintf("Executando ferramenta %s: %s", tool.Type, tool.Path), false)
 				}
-res := ExecuteTool(ctx, tool)
-			statusLabel := "Sucesso"
-			if res.Err != nil {
-				statusLabel = fmt.Sprintf("Erro: %v", res.Err)
-			}
-			anyExecuted = true
+				res := ExecuteTool(ctx, tool)
+				statusLabel := "Sucesso"
+				if res.Err != nil {
+					statusLabel = fmt.Sprintf("Erro: %v", res.Err)
+				}
+				anyExecuted = true
 				currentContext += fmt.Sprintf("\n[Assistente]: %s\n<tool_result>\n[Ferramenta executada]: %s (%s)\n[Status]: %s\n[Saída]:\n%s\n</tool_result>\n[Sistema]: Analise o resultado acima. Se a informação obtida for suficiente para responder ao usuário, apresente o relatório final no formato especificado. Caso ainda precise de outras verificações ou ações, envie a próxima <tool_call>:",
 					respText, tool.Type, tool.Path, statusLabel, res.Output)
 				currentContext = LimitContextTurns(currentContext, maxTurns)

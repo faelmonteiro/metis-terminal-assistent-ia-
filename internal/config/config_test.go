@@ -877,6 +877,3 @@ func TestFullAddRemoveSyncRestartLifecycle(t *testing.T) {
 		}
 	}
 }
-
-
-

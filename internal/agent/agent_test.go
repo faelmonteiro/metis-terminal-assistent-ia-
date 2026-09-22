@@ -239,7 +239,6 @@ func TestParseFlagsAndQuery(t *testing.T) {
 	}
 }
 
-
 func TestDeduplicateReportCommands(t *testing.T) {
 	in := `### 🎯 Diagnóstico
 Rede ok.
