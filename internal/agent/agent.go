@@ -706,7 +706,7 @@ CHECKLIST FINAL (todos SIM = parar)
 RELATÓRIO FINAL (formato exato)
 ═══════════════════════════════════════════════════════════
 ### 🎯 Diagnóstico
-(2-4 linhas: explique a causa raiz E detalhe o que foi feito e por quê, de forma didática e técnica)
+(3-5 linhas: explique a causa raiz E detalhe o que foi feito e por quê, de forma didática e técnica)
 
 ### ⚡ Ações e Comandos Executados
 **1. Objetivo**`+"```bash\ncmd\n```"+`
@@ -1196,7 +1196,7 @@ DIRETRIZES DE FORMATAÇÃO E APRESENTAÇÃO (RIGOROSO):
    Sua resposta final deve conter exatamente estas 3 seções estruturadas:
 
 ### 🎯 Diagnóstico
-(Explicação técnica direta e clara em 2 a 4 linhas sobre a causa raiz do erro ou o que está acontecendo na tela. Detalhe o que foi feito e por quê, de forma didática. Se houver mais de uma causa provável, liste com tópicos simples com hífen "-" sem aninhamentos complexos.)
+(Explicação técnica direta e clara em 3 a 5 linhas sobre a causa raiz do erro ou o que está acontecendo na tela. Detalhe o que foi feito e por quê, de forma didática. Se houver mais de uma causa provável, liste com tópicos simples com hífen "-" sem aninhamentos complexos.)
 
 ### 🛠️ Solução Recomendada
 (Para CADA comando ou ação necessária, use SEMPRE o formato de CARD limpo):
