@@ -738,7 +738,28 @@ RELATÓRIO FINAL (formato exato)
   □ Responde completamente?
 • Formato: <tool_call name="bash">cmd</
 • Final: ### 🎯 Diagnóstico / ### ⚡ Ações / ### 🏁 Conclusão`, step, maxSteps)
-			currentContext = strings.Replace(currentContext, "[Instrução do Agente]: ", "[Instrução do Agente]: "+shortPrompt+"\n\n", 1)
+
+			if cfg != nil && cfg.AutoShortPrompt {
+				// Modo econômico (AI_AUTO_SHORT_PROMPT=1): substitui o cabeçalho
+				// gigante inicial por uma instrução compacta + objetivo, mantendo
+				// apenas as últimas trocas (assistente + <tool_result>). O plano
+				// já foi estabelecido no passo 1 e as saídas frescas chegam nos
+				// tool_result, então o autoPrompt completo não é mais necessário.
+				compactHeader := fmt.Sprintf(`[Instrução do Agente]: Você é um Agente Linux autônomo no terminal do usuário.
+[Objetivo do Usuário]: %s
+
+%s
+
+[Regras]: 1 comando por <tool_call> • NÃO repita (sistema bloqueia) • NÃO invente saídas de comandos que não rodaram • continue as sub-tarefas do plano DO PASSO 1 • apenas envie o relatório final quando TODOS os objetivos estiverem cumpridos e confirmados.`, goal, shortPrompt)
+				if idx := strings.Index(currentContext, "[Assistente]:"); idx != -1 {
+					currentContext = compactHeader + currentContext[idx:]
+				} else {
+					currentContext = compactHeader + "\n" + currentContext
+				}
+			} else {
+				// Comportamento padrão: preserva o autoPrompt e só adiciona o lembrete
+				currentContext = strings.Replace(currentContext, "[Instrução do Agente]: ", "[Instrução do Agente]: "+shortPrompt+"\n\n", 1)
+			}
 		}
 
 		if onProgress != nil {

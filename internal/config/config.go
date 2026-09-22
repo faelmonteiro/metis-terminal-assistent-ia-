@@ -189,6 +189,7 @@ type Config struct {
 	MaxSteps           int
 	MaxContextTurns    int
 	AutoAllowMultiline bool
+	AutoShortPrompt    bool
 	ActiveProviderFile string
 	ModelsConfig       *ModelsConfigFile
 }
@@ -218,6 +219,7 @@ func Load() *Config {
 		MaxSteps:           getEnvIntOrDefault("AI_AUTO_MAX_STEPS", 6),
 		MaxContextTurns:    getEnvIntOrDefault("MAX_CONTEXT_TURNS", 5),
 		AutoAllowMultiline: getEnvBoolOrDefault("AI_AUTO_ALLOW_MULTILINE", false),
+		AutoShortPrompt:    getEnvBoolOrDefault("AI_AUTO_SHORT_PROMPT", false),
 		ModelsConfig:       cfgFile,
 	}
 
@@ -837,6 +839,7 @@ func (c *Config) Reload() {
 	c.OpenAIModel = getEnvOrDefault("OPENAI_MODEL", "gpt-4o-mini")
 	c.G4FModel = getEnvOrDefault("G4F_MODEL", "gpt-4o")
 	c.AutoAllowMultiline = getEnvBoolOrDefault("AI_AUTO_ALLOW_MULTILINE", false)
+	c.AutoShortPrompt = getEnvBoolOrDefault("AI_AUTO_SHORT_PROMPT", false)
 
 	// Atualiza o provedor ativo
 	c.Provider = c.getSavedProviderLocked()
