@@ -389,8 +389,22 @@ func loadModelsConfigFile() *ModelsConfigFile {
 					}
 				}
 
+				removedServersMap := make(map[string]bool)
+				for _, rs := range m.RemovedServers {
+					removedServersMap[strings.ToLower(rs)] = true
+				}
+				for _, cs := range m.CustomServers {
+					removedServersMap[strings.ToLower(cs.ID)] = true
+					removedServersMap[strings.ToLower(cs.Nome)] = true
+				}
+
 				for k, defs := range defaults {
 					canonDefK := providerToCanonicalKey(k)
+					if removedServersMap[strings.ToLower(k)] || removedServersMap[strings.ToLower(canonDefK)] {
+						delete(m.BuiltinModels, k)
+						delete(m.BuiltinModels, canonDefK)
+						continue
+					}
 					removedMap := make(map[string]bool)
 					if m.RemovedModels != nil {
 						for rk, rList := range m.RemovedModels {
@@ -699,77 +713,53 @@ func (c *Config) GetProvidersList() []ProviderItem {
 	nvidiaModel = sanitizeActiveModel(nvidiaModel, nvidiaModels)
 	openRouterModel = sanitizeActiveModel(openRouterModel, openRouterModels)
 
-	list := []ProviderItem{
-		{
-			ID:          "ollama",
-			Num:         "1",
-			Name:        "Ollama Local",
-			Icon:        "🤖",
-			EnvVar:      "OLLAMA_MODEL",
-			ActiveModel: ollamaModel,
-			Models:      ollamaModels,
-		},
-		{
-			ID:          "g4f",
-			Num:         "2",
-			Name:        "Web G4F",
-			Icon:        "🌍",
-			EnvVar:      "G4F_MODEL",
-			ActiveModel: g4fModel,
-			Models:      g4fModels,
-		},
-		{
-			ID:          "gemini",
-			Num:         "3",
-			Name:        "Gemini",
-			Icon:        "✨",
-			EnvVar:      "GEMINI_MODEL",
-			ActiveModel: geminiModel,
-			Models:      geminiModels,
-		},
-		{
-			ID:          "groq",
-			Num:         "4",
-			Name:        "Groq",
-			Icon:        "🚀",
-			EnvVar:      "GROQ_MODEL",
-			ActiveModel: groqModel,
-			Models:      groqModels,
-		},
-		{
-			ID:          "nvidia",
-			Num:         "5",
-			Name:        "NVIDIA",
-			Icon:        "🟢",
-			EnvVar:      "NVIDIA_MODEL",
-			ActiveModel: nvidiaModel,
-			Models:      nvidiaModels,
-		},
-		{
-			ID:          "openrouter",
-			Num:         "6",
-			Name:        "OpenRouter",
-			Icon:        "🪐",
-			EnvVar:      "OPENROUTER_MODEL",
-			ActiveModel: openRouterModel,
-			Models:      openRouterModels,
-		},
-	}
-
-	// Adiciona os servidores customizados cadastrados no Metis
-	if m != nil && len(m.CustomServers) > 0 {
-		removedMap := make(map[string]bool)
+	removedMap := make(map[string]bool)
+	if m != nil {
 		for _, rs := range m.RemovedServers {
 			removedMap[strings.ToLower(rs)] = true
 		}
+	}
 
-		for idx, srv := range m.CustomServers {
+	customServerMap := make(map[string]bool)
+	if m != nil {
+		for _, srv := range m.CustomServers {
+			customServerMap[strings.ToLower(srv.ID)] = true
+			customServerMap[strings.ToLower(srv.Nome)] = true
+		}
+	}
+
+	var list []ProviderItem
+	numIdx := 1
+
+	addBuiltin := func(id, name, icon, envVar, activeModel string, models []string) {
+		idLower := strings.ToLower(id)
+		if removedMap[idLower] || customServerMap[idLower] {
+			return
+		}
+		list = append(list, ProviderItem{
+			ID:          id,
+			Num:         strconv.Itoa(numIdx),
+			Name:        name,
+			Icon:        icon,
+			EnvVar:      envVar,
+			ActiveModel: activeModel,
+			Models:      models,
+		})
+		numIdx++
+	}
+
+	addBuiltin("ollama", "Ollama Local", "🤖", "OLLAMA_MODEL", ollamaModel, ollamaModels)
+	addBuiltin("g4f", "Web G4F", "🌍", "G4F_MODEL", g4fModel, g4fModels)
+	addBuiltin("gemini", "Gemini", "✨", "GEMINI_MODEL", geminiModel, geminiModels)
+	addBuiltin("groq", "Groq", "🚀", "GROQ_MODEL", groqModel, groqModels)
+	addBuiltin("nvidia", "NVIDIA", "🟢", "NVIDIA_MODEL", nvidiaModel, nvidiaModels)
+	addBuiltin("openrouter", "OpenRouter", "🪐", "OPENROUTER_MODEL", openRouterModel, openRouterModels)
+
+	// Adiciona os servidores customizados cadastrados no Metis
+	if m != nil && len(m.CustomServers) > 0 {
+		for _, srv := range m.CustomServers {
 			srvID := strings.ToLower(srv.ID)
-			if srvID == "" || removedMap[srvID] || removedMap[strings.ToLower(srv.Nome)] {
-				continue
-			}
-			// Ignora se for builtin já listado
-			if srvID == "groq" || srvID == "gemini" || srvID == "nvidia" || srvID == "openrouter" || srvID == "ollama" || srvID == "g4f" {
+			if srvID == "" {
 				continue
 			}
 
@@ -795,13 +785,14 @@ func (c *Config) GetProvidersList() []ProviderItem {
 
 			list = append(list, ProviderItem{
 				ID:          srv.ID,
-				Num:         strconv.Itoa(7 + idx),
+				Num:         strconv.Itoa(numIdx),
 				Name:        srv.Nome,
 				Icon:        "🌐",
 				EnvVar:      srv.APIKeyEnv,
 				ActiveModel: activeM,
 				Models:      cleanModels,
 			})
+			numIdx++
 		}
 	}
 
@@ -1585,8 +1576,22 @@ func (c *Config) ensureDefaultsLocked() {
 	if c.ModelsConfig.BuiltinModels == nil {
 		c.ModelsConfig.BuiltinModels = make(map[string][]string)
 	}
+	removedServersMap := make(map[string]bool)
+	for _, rs := range c.ModelsConfig.RemovedServers {
+		removedServersMap[strings.ToLower(rs)] = true
+	}
+	for _, cs := range c.ModelsConfig.CustomServers {
+		removedServersMap[strings.ToLower(cs.ID)] = true
+		removedServersMap[strings.ToLower(cs.Nome)] = true
+	}
+
 	for k, defs := range defaults {
 		canonDefK := providerToCanonicalKey(k)
+		if removedServersMap[strings.ToLower(k)] || removedServersMap[strings.ToLower(canonDefK)] {
+			delete(c.ModelsConfig.BuiltinModels, k)
+			delete(c.ModelsConfig.BuiltinModels, canonDefK)
+			continue
+		}
 		removedMap := make(map[string]bool)
 		if c.ModelsConfig.RemovedModels != nil {
 			for rk, rList := range c.ModelsConfig.RemovedModels {

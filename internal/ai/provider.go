@@ -52,6 +52,36 @@ func NewProvider(cfg *config.Config, providerName string) Provider {
 		}
 	}
 
+	// 1. Procura primeiro nos servidores customizados do Metis
+	if cfg != nil && cfg.ModelsConfig != nil {
+		for _, srv := range cfg.ModelsConfig.CustomServers {
+			srvID := strings.ToLower(strings.TrimPrefix(strings.ToLower(srv.ID), "custom:"))
+			srvNome := strings.ToLower(srv.Nome)
+			if srvID == name || srvNome == name {
+				apiKey := srv.APIKey
+				if apiKey == "" && srv.APIKeyEnv != "" {
+					apiKey = os.Getenv(srv.APIKeyEnv)
+				}
+				model := srv.ModeloAtual
+				if model == "" && len(srv.Modelos) > 0 {
+					model = srv.Modelos[0]
+				}
+				isOpenRouter := strings.Contains(strings.ToLower(srv.BaseURL), "openrouter.ai") || srvID == "openrouter"
+				endpoint := strings.TrimRight(srv.BaseURL, "/")
+				if !strings.HasSuffix(endpoint, "/chat/completions") {
+					endpoint += "/chat/completions"
+				}
+				return &OpenAICompatibleProvider{
+					name:       srv.Nome,
+					baseURL:    endpoint,
+					apiKey:     apiKey,
+					model:      model,
+					openRouter: isOpenRouter,
+				}
+			}
+		}
+	}
+
 	switch name {
 	case "gemini", "google":
 		return &GeminiProvider{
