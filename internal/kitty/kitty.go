@@ -250,6 +250,7 @@ func (km *KittyManager) GetSelectionBuffer() string {
 // ClearSelection limpa seleções ativas do mouse no terminal
 func (km *KittyManager) ClearSelection() {
 	_ = os.Remove("/tmp/qwen_selecao.txt")
+	_ = os.Remove(fmt.Sprintf("/tmp/qwen_selecao.%d.txt", os.Getuid()))
 
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
 	defer cancel()
@@ -652,6 +653,21 @@ func IsDigits(s string) bool {
 	return true
 }
 
+func parsePPIDFromStat(data string) int {
+	idx := strings.LastIndex(data, ")")
+	if idx == -1 || idx+1 >= len(data) {
+		return 0
+	}
+	rest := strings.Fields(data[idx+1:])
+	if len(rest) < 2 {
+		return 0
+	}
+	if p, err := strconv.Atoi(rest[1]); err == nil && p > 1 {
+		return p
+	}
+	return 0
+}
+
 func findParentTerminalProcess() (int, string) {
 	ppid := os.Getppid()
 	for i := 0; i < 6 && ppid > 1; i++ {
@@ -662,12 +678,9 @@ func findParentTerminalProcess() (int, string) {
 			}
 		}
 		if data, err := os.ReadFile(fmt.Sprintf("/proc/%d/stat", ppid)); err == nil {
-			fields := strings.Fields(string(data))
-			if len(fields) > 3 {
-				if p, err := strconv.Atoi(fields[3]); err == nil && p > 1 {
-					ppid = p
-					continue
-				}
+			ppid = parsePPIDFromStat(string(data))
+			if ppid > 1 {
+				continue
 			}
 		}
 		break

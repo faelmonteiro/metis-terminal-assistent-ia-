@@ -65,10 +65,6 @@ func main() {
 		if err == nil {
 			return
 		}
-		// Garantir que recursos da GUI sejam liberados
-		if cleaner, ok := interface{}(km).(interface{ Cleanup() }); ok {
-			cleaner.Cleanup()
-		}
 		fmt.Fprintf(os.Stderr, "Aviso: Falha ao abrir janela gráfica (%v), iniciando modo terminal TUI...\n", err)
 	}
 
@@ -85,17 +81,13 @@ func main() {
 
 func normalizeCLIArgs(args []string) []string {
 	var normalized []string
-	seenQuery := false
 	for _, arg := range args {
-		// O atalho -<dígitos> (ex: -30) só é interpretado como linhas ANTES da pergunta
-		if !seenQuery && len(arg) > 1 && arg[0] == '-' && kitty.IsDigits(arg[1:]) {
+		// O atalho -<dígitos> (ex: -30) é interpretado como linhas em qualquer posição
+		if len(arg) > 1 && arg[0] == '-' && kitty.IsDigits(arg[1:]) {
 			normalized = append(normalized, "-n", arg[1:])
 			continue
 		}
 		normalized = append(normalized, arg)
-		if arg != "" && !strings.HasPrefix(arg, "-") {
-			seenQuery = true
-		}
 	}
 	return normalized
 }

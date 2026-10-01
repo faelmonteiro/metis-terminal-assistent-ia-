@@ -165,6 +165,102 @@ func NewProvider(cfg *config.Config, providerName string) Provider {
 	}
 }
 
+// NewProviderForTest cria um provider para teste de conexão com modelo específico
+func NewProviderForTest(cfg *config.Config, providerName, model string) Provider {
+	name := strings.ToLower(strings.TrimSpace(providerName))
+	if strings.HasPrefix(name, "custom:") {
+		name = strings.TrimPrefix(name, "custom:")
+	}
+	if name == "" {
+		name = strings.ToLower(strings.TrimSpace(cfg.Provider))
+		if strings.HasPrefix(name, "custom:") {
+			name = strings.TrimPrefix(name, "custom:")
+		}
+	}
+
+	if model == "" {
+		return NewProvider(cfg, providerName)
+	}
+
+	// 1. Procura primeiro nos servidores customizados do Metis
+	if cfg != nil && cfg.ModelsConfig != nil {
+		for _, srv := range cfg.ModelsConfig.CustomServers {
+			srvID := strings.ToLower(strings.TrimPrefix(strings.ToLower(srv.ID), "custom:"))
+			srvNome := strings.ToLower(srv.Nome)
+			if srvID == name || srvNome == name {
+				apiKey := srv.APIKey
+				if apiKey == "" && srv.APIKeyEnv != "" {
+					apiKey = os.Getenv(srv.APIKeyEnv)
+				}
+				isOpenRouter := strings.Contains(strings.ToLower(srv.BaseURL), "openrouter.ai") || srvID == "openrouter"
+				endpoint := strings.TrimRight(srv.BaseURL, "/")
+				if !strings.HasSuffix(endpoint, "/chat/completions") {
+					endpoint += "/chat/completions"
+				}
+				return &OpenAICompatibleProvider{
+					name:       srv.Nome,
+					baseURL:    endpoint,
+					apiKey:     apiKey,
+					model:      model,
+					openRouter: isOpenRouter,
+				}
+			}
+		}
+	}
+
+	switch name {
+	case "gemini", "google":
+		return &GeminiProvider{
+			apiKey: cfg.GeminiKey,
+			model:  model,
+		}
+	case "groq":
+		return &OpenAICompatibleProvider{
+			name:    "Groq",
+			baseURL: "https://api.groq.com/openai/v1/chat/completions",
+			apiKey:  cfg.GroqKey,
+			model:   model,
+		}
+	case "openrouter", "open router", "open_router":
+		return &OpenAICompatibleProvider{
+			name:       "OpenRouter",
+			baseURL:    "https://openrouter.ai/api/v1/chat/completions",
+			apiKey:     cfg.OpenRouterKey,
+			model:      model,
+			openRouter: true,
+		}
+	case "nvidia":
+		return &OpenAICompatibleProvider{
+			name:    "NVIDIA",
+			baseURL: "https://integrate.api.nvidia.com/v1/chat/completions",
+			apiKey:  cfg.NvidiaKey,
+			model:   model,
+		}
+	case "openai":
+		return &OpenAICompatibleProvider{
+			name:    "OpenAI",
+			baseURL: "https://api.openai.com/v1/chat/completions",
+			apiKey:  cfg.OpenAIKey,
+			model:   model,
+		}
+	case "g4f", "web", "web g4f", "web_g4f":
+		return &PythonBridgeProvider{
+			name:  "Web G4F",
+			model: model,
+		}
+	case "ollama", "local", "ollama local", "ollama_local":
+		return &OllamaProvider{
+			url:   cfg.OllamaURL,
+			model: model,
+		}
+	default:
+		return &OllamaProvider{
+			url:   cfg.OllamaURL,
+			model: model,
+		}
+	}
+}
+
 // -----------------------------------------------------------------------------
 // Ollama Provider (Local / Offline)
 // -----------------------------------------------------------------------------

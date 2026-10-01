@@ -438,7 +438,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.cancelFunc = cancel
 
 			sysPrompt := agent.SystemPrompt(true)
-			return m, tea.Batch(m.spinner.Tick, m.startStreamingCmd(ctx, sysPrompt, msg.response))
+			promptToSend := m.conversationHistory + "\n\n[Resultado das Ferramentas]:\n" + msg.response
+			return m, tea.Batch(m.spinner.Tick, m.startStreamingCmd(ctx, sysPrompt, promptToSend))
 		}
 		m.isLoading = false
 		m.statusMsg = "Modo autônomo finalizado."

@@ -44,6 +44,7 @@ var (
 	jsonRegex       = regexp.MustCompile(`\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}`)
 	cleanTagsRegex  = regexp.MustCompile(`(?is)</?(?:parameter|function|invoke|tool_call|tool_result)[^>]*>`)
 	inlineCodeRegex = regexp.MustCompile("`([^`]+)`")
+	stepReminderRegex = regexp.MustCompile(`(?s)\[LEMBRETE PASSO \d+/\d+\].*?(?:\n\n|\n\[Instrução do Agente]:|$)`)
 )
 
 type ToolCall struct {
@@ -92,6 +93,46 @@ func CleanToolValue(text string) string {
 	return strings.TrimSpace(trimVal)
 }
 
+// splitMergedBashCommands divide comandos bash que foram fundidos por tags não fechadas
+// Ex: "ls -la\n<tool_call name=\"bash\">cat /etc/passwd" -> ["ls -la", "cat /etc/passwd"]
+func splitMergedBashCommands(cmd string) []string {
+	var result []string
+	parts := toolCallXmlRegex.FindAllStringSubmatchIndex(cmd, -1)
+	if len(parts) <= 1 {
+		return []string{cmd}
+	}
+	lastEnd := 0
+	for _, p := range parts {
+		if len(p) >= 6 {
+			contentStart := p[4]
+			contentEnd := p[5]
+			if contentStart > lastEnd {
+				before := strings.TrimSpace(cmd[lastEnd:contentStart])
+				if before != "" {
+					result = append(result, before)
+				}
+			}
+			if contentEnd > contentStart {
+				content := strings.TrimSpace(cmd[contentStart:contentEnd])
+				if content != "" {
+					result = append(result, content)
+				}
+			}
+			lastEnd = p[1]
+		}
+	}
+	if lastEnd < len(cmd) {
+		tail := strings.TrimSpace(cmd[lastEnd:])
+		if tail != "" {
+			result = append(result, tail)
+		}
+	}
+	if len(result) == 0 {
+		return []string{cmd}
+	}
+	return result
+}
+
 // ParseToolCalls extrai invocações de ferramentas em formatos XML (<tool_call>, <bash>, etc.) ou JSON
 func ParseToolCalls(raw string) []ToolCall {
 	var calls []ToolCall
@@ -135,7 +176,13 @@ func ParseToolCalls(raw string) []ToolCall {
 				cmd = pVal
 			}
 			if cmd != "" {
-				calls = append(calls, ToolCall{Type: "bash", Command: cmd})
+				// Split merged commands if content contains multiple unclosed tool_call tags
+				cmds := splitMergedBashCommands(cmd)
+				for _, c := range cmds {
+					if strings.TrimSpace(c) != "" {
+						calls = append(calls, ToolCall{Type: "bash", Command: c})
+					}
+				}
 			}
 		case "read_file", "cat", "ler_arquivo":
 			p := pVal
@@ -456,9 +503,9 @@ func ExecuteTool(ctx context.Context, call ToolCall) ToolResult {
 		}
 
 		// Se houver erro de timeout, matar process group
-		if err != nil && execCtx.Err() == context.DeadlineExceeded {
-			// Tenta matar o process group
-			syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+		if err != nil && execCtx.Err() == context.DeadlineExceeded && cmd.Process != nil {
+			// Tenta matar o process group (cmd.Process e nil se o processo nem chegou a iniciar)
+			_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
 		}
 
 		if err != nil {
@@ -743,7 +790,9 @@ RELATÓRIO FINAL (formato exato)
 • Final: ### 🎯 Diagnóstico / ### ⚡ Ações / ### 🏁 Conclusão / ### 💡 Dicas e Próximos Passos`, step, maxSteps)
 
 			if cfg != nil {
-				// Adiciona o lembrete ao cabeçalho da instrução
+				// Adiciona o lembrete ao cabeçalho da instrução (remove lembrete anterior se houver)
+				// Remove qualquer lembrete de passo anterior
+				currentContext = stepReminderRegex.ReplaceAllString(currentContext, "")
 				currentContext = strings.Replace(currentContext, "[Instrução do Agente]: ", "[Instrução do Agente]: "+shortPrompt+"\n\n", 1)
 			}
 		}
@@ -1032,21 +1081,44 @@ RELATÓRIO FINAL (formato exato)
 // SanitizeAutoCommand garante que comandos enviados no modo autônomo nunca travem esperando entrada interativa ou pagers
 func SanitizeAutoCommand(cmd string) string {
 	clean := strings.TrimSpace(cmd)
+
 	// Evita que comandos do systemd ou journalctl abram pager interativo (less) no terminal Kitty
+	// Insere o prefixo antes do comando específico (systemctl, journalctl), não no início da string composta
 	if strings.Contains(clean, "systemctl") && !strings.Contains(clean, "--no-pager") && !strings.Contains(clean, "SYSTEMD_PAGER") {
-		clean = "SYSTEMD_PAGER=cat " + clean
+		clean = insertEnvBeforeCommand(clean, "systemctl", "SYSTEMD_PAGER=cat")
 	}
 	if strings.Contains(clean, "journalctl") && !strings.Contains(clean, "--no-pager") && !strings.Contains(clean, "SYSTEMD_PAGER") {
-		clean = "SYSTEMD_PAGER=cat " + clean
+		clean = insertEnvBeforeCommand(clean, "journalctl", "SYSTEMD_PAGER=cat")
 	}
 	if strings.Contains(clean, "git ") && !strings.Contains(clean, "--no-pager") && !strings.Contains(clean, "PAGER") {
-		clean = "PAGER=cat " + clean
+		clean = insertEnvBeforeCommand(clean, "git ", "PAGER=cat")
 	}
 	// Garante que ping não rode infinitamente
 	if strings.HasPrefix(clean, "ping ") && !strings.Contains(clean, "-c") {
 		clean = strings.Replace(clean, "ping ", "ping -c 3 ", 1)
 	}
 	return clean
+}
+
+// insertEnvBeforeCommand insere uma variável de ambiente antes do comando alvo em uma string composta (ex: "cd /tmp && systemctl status")
+func insertEnvBeforeCommand(cmd, targetCmd, envPrefix string) string {
+	// Separadores de comando composto
+	separators := []string{" && ", " || ", " ; ", " | "}
+	for _, sep := range separators {
+		parts := strings.Split(cmd, sep)
+		for i, part := range parts {
+			trimmed := strings.TrimSpace(part)
+			if strings.HasPrefix(trimmed, targetCmd) {
+				parts[i] = envPrefix + " " + part
+				return strings.Join(parts, sep)
+			}
+		}
+	}
+	// Se não encontrou separador, verifica se o comando começa com o target
+	if strings.HasPrefix(strings.TrimSpace(cmd), targetCmd) {
+		return envPrefix + " " + cmd
+	}
+	return cmd
 }
 
 // CleanResponseFinal remove tags residuais de ferramentas da resposta final

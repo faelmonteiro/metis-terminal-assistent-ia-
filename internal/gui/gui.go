@@ -394,7 +394,7 @@ func Run(cfg *config.Config, km *kitty.KittyManager, initialQuery string, cliLin
 	w.Bind("goAddProviderModel", addProviderModelFn)
 
 	testProviderConnFn := func(provider, model string) {
-		tempProv := ai.NewProvider(cfg, provider)
+		tempProv := ai.NewProviderForTest(cfg, provider, model)
 		testAndDispatchStatus(tempProv)
 	}
 	w.Bind("testProviderConnection", testProviderConnFn)
@@ -741,7 +741,10 @@ func Run(cfg *config.Config, km *kitty.KittyManager, initialQuery string, cliLin
 			go func() {
 				defer func() {
 					chatMu.Lock()
-					cancelFunc = nil
+					if cancelFunc != nil {
+						cancelFunc()
+						cancelFunc = nil
+					}
 					chatMu.Unlock()
 				}()
 
@@ -971,7 +974,10 @@ func Run(cfg *config.Config, km *kitty.KittyManager, initialQuery string, cliLin
 				chatMu.Unlock()
 			}
 			chatMu.Lock()
-			cancelFunc = nil
+			if cancelFunc != nil {
+				cancelFunc()
+				cancelFunc = nil
+			}
 			chatMu.Unlock()
 			w.Dispatch(func() {
 				w.Eval("onStreamFinished();")

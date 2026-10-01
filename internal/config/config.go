@@ -597,6 +597,8 @@ func (c *Config) GetWindowOpacity() int {
 
 func (c *Config) GetProvidersList() []ProviderItem {
 	c.mu.RLock()
+	defer c.mu.RUnlock()
+
 	m := c.ModelsConfig
 	g4fModel := c.G4FModel
 	ollamaModel := c.OllamaModel
@@ -604,13 +606,16 @@ func (c *Config) GetProvidersList() []ProviderItem {
 	groqModel := c.GroqModel
 	nvidiaModel := c.NvidiaModel
 	openRouterModel := c.OpenRouterModel
-	c.mu.RUnlock()
 
 	if m == nil || m.BuiltinModels == nil {
+		c.mu.RUnlock()
 		c.mu.Lock()
-		c.ModelsConfig = loadModelsConfigFile()
+		if c.ModelsConfig == nil || c.ModelsConfig.BuiltinModels == nil {
+			c.ModelsConfig = loadModelsConfigFile()
+		}
 		m = c.ModelsConfig
 		c.mu.Unlock()
+		c.mu.RLock()
 	}
 
 	getModelList := func(key string, fallback []string) []string {
@@ -698,9 +703,9 @@ func (c *Config) GetProvidersList() []ProviderItem {
 		if len(models) == 0 {
 			return ""
 		}
-		for _, m := range models {
-			if strings.EqualFold(strings.TrimSpace(m), strings.TrimSpace(curActive)) {
-				return m
+		for _, mod := range models {
+			if strings.EqualFold(strings.TrimSpace(mod), strings.TrimSpace(curActive)) {
+				return mod
 			}
 		}
 		return models[0]
@@ -1207,6 +1212,7 @@ func (c *Config) applyActiveModelsLocked() {
 					updateEnvVarInFile(ef, "DEFAULT_PROVIDER", providerToNum(p))
 				}
 				for _, d := range getAllLastProviderDirs(home) {
+					_ = os.MkdirAll(d, 0755)
 					_ = os.WriteFile(filepath.Join(d, ".last_provider"), []byte(providerToNum(p)+"\n"), 0644)
 					_ = os.WriteFile(filepath.Join(d, ".fix_ia_selected"), []byte(providerToLabel(p)+"\n"), 0644)
 				}
@@ -1502,10 +1508,36 @@ func (c *Config) saveModelsConfigLocked() error {
 	}
 
 	// Preparar o mapa de dados uma vez
+	// Lê o arquivo mais recente (por mtime) para preservar chaves desconhecidas, igual ao loadModelsConfigFile
 	var m map[string]interface{}
 	if len(paths) > 0 {
-		if data, err := os.ReadFile(paths[0]); err == nil {
-			_ = json.Unmarshal(data, &m)
+		type fileCandidate struct {
+			path    string
+			modTime time.Time
+		}
+		var existing []fileCandidate
+		seen := make(map[string]bool)
+		for _, p := range paths {
+			if fi, err := os.Stat(p); err == nil && !fi.IsDir() && fi.Size() > 0 {
+				realP := p
+				if target, err := filepath.EvalSymlinks(p); err == nil {
+					realP = target
+				}
+				if !seen[realP] {
+					seen[realP] = true
+					existing = append(existing, fileCandidate{path: p, modTime: fi.ModTime()})
+				}
+			}
+		}
+		sort.Slice(existing, func(i, j int) bool {
+			return existing[i].modTime.After(existing[j].modTime)
+		})
+		for _, cand := range existing {
+			if data, err := os.ReadFile(cand.path); err == nil && len(data) > 0 {
+				if err := json.Unmarshal(data, &m); err == nil && m != nil {
+					break
+				}
+			}
 		}
 	}
 	if m == nil {
@@ -1913,6 +1945,7 @@ func (c *Config) fallbackActiveModelLocked(provider, removedModel string) {
 					}
 					dirs := getAllLastProviderDirs(home)
 					for _, d := range dirs {
+						_ = os.MkdirAll(d, 0755)
 						_ = os.WriteFile(filepath.Join(d, ".last_provider"), []byte(providerToNum(p)+"\n"), 0644)
 						_ = os.WriteFile(filepath.Join(d, ".fix_ia_selected"), []byte(providerToLabel(p)+"\n"), 0644)
 					}
