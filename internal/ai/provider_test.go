@@ -120,3 +120,34 @@ loop:
 
 	t.Logf("Resposta recebida da IA com sucesso: %s", strings.TrimSpace(sb.String()))
 }
+
+// TestCustomServerGroqConsoleURLNormalized reproduz o bug: o Metis (Python)
+// normaliza base_url apontando para o painel web da Groq
+// (https://console.groq.com) para o endpoint real da API. O metis-screen
+// usava a URL literal e chamava https://console.groq.com/chat/completions (HTTP 404).
+func TestCustomServerGroqConsoleURLNormalized(t *testing.T) {
+	cfg := &config.Config{
+		ModelsConfig: &config.ModelsConfigFile{
+			CustomServers: []config.CustomServer{
+				{
+					ID:          "groq",
+					Nome:        "Groq",
+					BaseURL:     "https://console.groq.com",
+					APIKeyEnv:   "GROQ_API_KEY",
+					ModeloAtual: "openai/gpt-oss-120b",
+				},
+			},
+		},
+	}
+
+	p := NewProvider(cfg, "groq")
+	ocp, ok := p.(*OpenAICompatibleProvider)
+	if !ok {
+		t.Fatalf("expected *OpenAICompatibleProvider, got %T", p)
+	}
+
+	const want = "https://api.groq.com/openai/v1/chat/completions"
+	if ocp.baseURL != want {
+		t.Errorf("baseURL = %q, want %q", ocp.baseURL, want)
+	}
+}

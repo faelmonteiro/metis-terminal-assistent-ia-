@@ -40,6 +40,35 @@ type Provider interface {
 	TestConnection(ctx context.Context) (int, error)
 }
 
+// resolveChatCompletionsEndpoint normaliza o base_url de um servidor customizado
+// do Metis para o endpoint final de chat/completions. Espelha a normalização que o
+// Metis (Python) faz em agente/services/custom_openai_service.py: o usuário pode
+// ter cadastrado o painel web da Groq (https://console.groq.com) em vez da API
+// (https://api.groq.com/openai/v1), o que resultaria em HTTP 404.
+func resolveChatCompletionsEndpoint(raw string) string {
+	trimmed := strings.TrimSpace(raw)
+	low := strings.ToLower(trimmed)
+
+	switch {
+	case strings.Contains(low, "groq.com"):
+		if strings.Contains(low, "console.groq.com") || !strings.HasSuffix(low, "/chat/completions") {
+			return "https://api.groq.com/openai/v1/chat/completions"
+		}
+		return trimmed
+	case strings.Contains(low, "openrouter.ai"):
+		if strings.HasSuffix(low, "/chat/completions") {
+			return trimmed
+		}
+		return "https://openrouter.ai/api/v1/chat/completions"
+	}
+
+	endpoint := strings.TrimRight(trimmed, "/")
+	if !strings.HasSuffix(strings.ToLower(endpoint), "/chat/completions") {
+		endpoint += "/chat/completions"
+	}
+	return endpoint
+}
+
 func NewProvider(cfg *config.Config, providerName string) Provider {
 	name := strings.ToLower(strings.TrimSpace(providerName))
 	if strings.HasPrefix(name, "custom:") {
@@ -67,10 +96,7 @@ func NewProvider(cfg *config.Config, providerName string) Provider {
 					model = srv.Modelos[0]
 				}
 				isOpenRouter := strings.Contains(strings.ToLower(srv.BaseURL), "openrouter.ai") || srvID == "openrouter"
-				endpoint := strings.TrimRight(srv.BaseURL, "/")
-				if !strings.HasSuffix(endpoint, "/chat/completions") {
-					endpoint += "/chat/completions"
-				}
+				endpoint := resolveChatCompletionsEndpoint(srv.BaseURL)
 				return &OpenAICompatibleProvider{
 					name:       srv.Nome,
 					baseURL:    endpoint,
@@ -143,10 +169,7 @@ func NewProvider(cfg *config.Config, providerName string) Provider {
 						model = srv.Modelos[0]
 					}
 					isOpenRouter := strings.Contains(strings.ToLower(srv.BaseURL), "openrouter.ai") || srvID == "openrouter"
-					endpoint := strings.TrimRight(srv.BaseURL, "/")
-					if !strings.HasSuffix(endpoint, "/chat/completions") {
-						endpoint += "/chat/completions"
-					}
+					endpoint := resolveChatCompletionsEndpoint(srv.BaseURL)
 					return &OpenAICompatibleProvider{
 						name:       srv.Nome,
 						baseURL:    endpoint,
@@ -193,10 +216,7 @@ func NewProviderForTest(cfg *config.Config, providerName, model string) Provider
 					apiKey = os.Getenv(srv.APIKeyEnv)
 				}
 				isOpenRouter := strings.Contains(strings.ToLower(srv.BaseURL), "openrouter.ai") || srvID == "openrouter"
-				endpoint := strings.TrimRight(srv.BaseURL, "/")
-				if !strings.HasSuffix(endpoint, "/chat/completions") {
-					endpoint += "/chat/completions"
-				}
+				endpoint := resolveChatCompletionsEndpoint(srv.BaseURL)
 				return &OpenAICompatibleProvider{
 					name:       srv.Nome,
 					baseURL:    endpoint,
