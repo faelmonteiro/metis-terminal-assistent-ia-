@@ -1,8 +1,10 @@
 package config
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -874,6 +876,80 @@ func TestFullAddRemoveSyncRestartLifecycle(t *testing.T) {
 			if len(p.Models) != 0 {
 				t.Errorf("after sync & restart 3, openrouter models must stay empty, got %v", p.Models)
 			}
+		}
+	}
+}
+
+func TestDeletedBuiltinProviderNotResurrectedBySync(t *testing.T) {
+	tempHome := t.TempDir()
+	t.Setenv("HOME", tempHome)
+
+	configMetisDir := filepath.Join(tempHome, ".config", "metis")
+	_ = os.MkdirAll(configMetisDir, 0755)
+
+	// Usuário excluiu permanentemente NVIDIA e Gemini no Metis: eles saem de
+	// builtin_models e NÃO entram em removed_servers (exclusão permanente, sem
+	// tombstone). Groq virou servidor customizado (não builtin).
+	initialJSON := `{
+  "active_provider": "groq",
+  "active_model": "openai/gpt-oss-120b",
+  "builtin_models": {
+    "G4F": ["gpt-4o", "gpt-4o-mini"],
+    "Ollama": ["llama3.2:3b"]
+  },
+  "custom_servers": [
+    {
+      "id": "groq",
+      "nome": "Groq",
+      "base_url": "https://console.groq.com",
+      "modelo_atual": "openai/gpt-oss-120b",
+      "modelos": ["openai/gpt-oss-120b"]
+    }
+  ],
+  "removed_servers": [],
+  "removed_models": {},
+  "preferences": {
+    "active_models": { "groq": "openai/gpt-oss-120b" }
+  }
+}`
+	cfgPath := filepath.Join(configMetisDir, "config_models.json")
+	_ = os.WriteFile(cfgPath, []byte(initialJSON), 0600)
+
+	cfg := Load()
+	if err := cfg.SyncMetisModels(); err != nil {
+		t.Fatalf("unexpected error in SyncMetisModels: %v", err)
+	}
+
+	// Provedores excluídos (gemini, nvidia) NÃO podem aparecer na lista
+	present := make(map[string]bool)
+	for _, p := range cfg.GetProvidersList() {
+		present[strings.ToLower(p.ID)] = true
+	}
+	for _, deleted := range []string{"gemini", "nvidia"} {
+		if present[deleted] {
+			t.Errorf("deleted builtin provider %q was resurrected in providers list after sync", deleted)
+		}
+	}
+	// O que o usuário mantém deve continuar aparecendo
+	for _, kept := range []string{"g4f", "ollama", "groq"} {
+		if !present[kept] {
+			t.Errorf("expected kept provider %q to be present after sync", kept)
+		}
+	}
+
+	// E o disco NÃO pode ser reescrito ressuscitando os provedores excluídos
+	data, err := os.ReadFile(cfgPath)
+	if err != nil {
+		t.Fatalf("failed to read config after sync: %v", err)
+	}
+	var raw map[string]any
+	if err := json.Unmarshal(data, &raw); err != nil {
+		t.Fatalf("failed to parse config after sync: %v", err)
+	}
+	bm, _ := raw["builtin_models"].(map[string]any)
+	for _, deleted := range []string{"Gemini", "NVIDIA"} {
+		if _, ok := bm[deleted]; ok {
+			t.Errorf("deleted builtin provider %q was written back to disk by sync", deleted)
 		}
 	}
 }

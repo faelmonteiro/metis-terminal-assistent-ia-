@@ -39,6 +39,26 @@ func getCanonicalDefaults() map[string][]string {
 	}
 }
 
+// isVirginBuiltinModels reports whether builtin_models is empty/absent, i.e. a
+// fresh/first-run config where the canonical defaults should be injected.
+// Once any builtin provider key exists, the set is authoritative: a canonical
+// provider that is absent was deliberately deleted by the user and must NOT be
+// re-injected (the Metis app now does permanent deletes, leaving no tombstone).
+func isVirginBuiltinModels(b map[string][]string) bool {
+	return len(b) == 0
+}
+
+// builtinModelsHasProvider reports whether builtin_models already contains the
+// given canonical provider (case-insensitive key match).
+func builtinModelsHasProvider(b map[string][]string, canonKey string) bool {
+	for k := range b {
+		if strings.EqualFold(k, canonKey) {
+			return true
+		}
+	}
+	return false
+}
+
 type ProviderItem struct {
 	ID          string   `json:"id"`
 	Num         string   `json:"num"`
@@ -398,6 +418,7 @@ func loadModelsConfigFile() *ModelsConfigFile {
 					removedServersMap[strings.ToLower(cs.Nome)] = true
 				}
 
+				virgin := isVirginBuiltinModels(m.BuiltinModels)
 				for k, defs := range defaults {
 					canonDefK := providerToCanonicalKey(k)
 					if removedServersMap[strings.ToLower(k)] || removedServersMap[strings.ToLower(canonDefK)] {
@@ -425,6 +446,12 @@ func loadModelsConfigFile() *ModelsConfigFile {
 								break
 							}
 						}
+					}
+
+					// Config customizado: provedor canônico ausente => usuário
+					// excluiu. Não re-injeta os defaults (ausente = excluído).
+					if !hasKey && !virgin {
+						continue
 					}
 
 					var cleanExisting []string
@@ -736,9 +763,16 @@ func (c *Config) GetProvidersList() []ProviderItem {
 	var list []ProviderItem
 	numIdx := 1
 
+	virginBuiltin := m == nil || isVirginBuiltinModels(m.BuiltinModels)
+
 	addBuiltin := func(id, name, icon, envVar, activeModel string, models []string) {
 		idLower := strings.ToLower(id)
 		if removedMap[idLower] || customServerMap[idLower] {
+			return
+		}
+		// Config customizado: só mostra builtin canônico se existir em
+		// builtin_models (ausente = excluído pelo usuário, não re-injetar).
+		if !virginBuiltin && !builtinModelsHasProvider(m.BuiltinModels, providerToCanonicalKey(id)) {
 			return
 		}
 		list = append(list, ProviderItem{
@@ -1617,6 +1651,7 @@ func (c *Config) ensureDefaultsLocked() {
 		removedServersMap[strings.ToLower(cs.Nome)] = true
 	}
 
+	virgin := isVirginBuiltinModels(c.ModelsConfig.BuiltinModels)
 	for k, defs := range defaults {
 		canonDefK := providerToCanonicalKey(k)
 		if removedServersMap[strings.ToLower(k)] || removedServersMap[strings.ToLower(canonDefK)] {
@@ -1644,6 +1679,12 @@ func (c *Config) ensureDefaultsLocked() {
 					break
 				}
 			}
+		}
+
+		// Config customizado: provedor canônico ausente => usuário excluiu.
+		// Não re-injeta os defaults (ausente = excluído).
+		if !hasKey && !virgin {
+			continue
 		}
 
 		var cleanExisting []string
